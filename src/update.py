@@ -63,6 +63,10 @@ class LocalUpdate(object):
         elif self.args.optimizer == 'adam':
             optimizer = torch.optim.Adam(model.parameters(), lr=self.args.lr,
                                          weight_decay=1e-4)
+        # added new optimizer
+        elif self.args.optimizer == 'adagrad':
+            optimizer = torch.optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0,
+                                        initial_accumulator_value=0)
 
         for iter in range(self.args.local_ep):
             batch_loss = []
