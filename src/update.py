@@ -68,6 +68,15 @@ class LocalUpdate(object):
             optimizer = torch.optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0,
                                         initial_accumulator_value=0)
 
+        elif self.args.optimizer == 'asgd':
+            optimizer = torch.optim.ASGD(model.parameters(), lr=0.01, lambd=0.0001, alpha=0.75, t0=1000000.0,
+                                         weight_decay=0)
+        elif self.args.optimizer == 'rmsprop':
+            optimizer = torch.optim.RMSprop(model.parameters(), lr=0.01, alpha=0.99, eps=1e-08, weight_decay=0,
+                                            momentum=0, centered=False)
+        elif self.args.optimizer == 'adadelta':
+            optimizer = torch.optim.Adadelta(model.parameters(), lr=1.0, rho=0.9, eps=1e-06, weight_decay=0)
+
         for iter in range(self.args.local_ep):
             batch_loss = []
             for batch_idx, (images, labels) in enumerate(self.trainloader):
