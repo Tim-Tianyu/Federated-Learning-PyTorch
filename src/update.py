@@ -10,7 +10,6 @@ from torch.utils.data import DataLoader, Dataset
 class DatasetSplit(Dataset):
     """An abstract Dataset class wrapped around Pytorch Dataset class.
     """
-
     def __init__(self, dataset, idxs):
         self.dataset = dataset
         self.idxs = [int(i) for i in idxs]
@@ -31,7 +30,7 @@ class LocalUpdate(object):
             dataset, list(idxs))
         self.device = 'cuda' if args.gpu else 'cpu'
         # Default criterion set to NLL loss function
-        self.criterion = nn.NLLLoss().to(self.device)
+        self.criterion = nn.CrossEntropyLoss()  #nn.NLLLoss().to(self.device)
 
     def train_val_test(self, dataset, idxs):
         """
@@ -39,16 +38,19 @@ class LocalUpdate(object):
         and user indexes.
         """
         # split indexes for train, validation, and test (80, 10, 10)
-        idxs_train = idxs[:int(0.8*len(idxs))]
-        idxs_val = idxs[int(0.8*len(idxs)):int(0.9*len(idxs))]
-        idxs_test = idxs[int(0.9*len(idxs)):]
+        idxs_train = idxs[:int(0.8 * len(idxs))]
+        idxs_val = idxs[int(0.8 * len(idxs)):int(0.9 * len(idxs))]
+        idxs_test = idxs[int(0.9 * len(idxs)):]
 
         trainloader = DataLoader(DatasetSplit(dataset, idxs_train),
-                                 batch_size=self.args.local_bs, shuffle=True)
+                                 batch_size=max(self.args.local_bs, 1),
+                                 shuffle=True)
         validloader = DataLoader(DatasetSplit(dataset, idxs_val),
-                                 batch_size=max(int(len(idxs_val)/10), 1), shuffle=False)
+                                 batch_size=max(int(len(idxs_val) / 10), 1),
+                                 shuffle=False)
         testloader = DataLoader(DatasetSplit(dataset, idxs_test),
-                                batch_size=max(int(len(idxs_test)/10), 1), shuffle=False)
+                                batch_size=max(int(len(idxs_test) / 10), 1),
+                                shuffle=False)
         return trainloader, validloader, testloader
 
     def update_weights(self, model, global_round):
@@ -58,24 +60,42 @@ class LocalUpdate(object):
 
         # Set optimizer for the local updates
         if self.args.optimizer == 'sgd':
-            optimizer = torch.optim.SGD(model.parameters(), lr=self.args.lr,
+            optimizer = torch.optim.SGD(model.parameters(),
+                                        lr=self.args.lr,
                                         momentum=0.5)
         elif self.args.optimizer == 'adam':
-            optimizer = torch.optim.Adam(model.parameters(), lr=self.args.lr,
+            optimizer = torch.optim.Adam(model.parameters(),
+                                         lr=self.args.lr,
                                          weight_decay=1e-4)
         # added new optimizer
         elif self.args.optimizer == 'adagrad':
-            optimizer = torch.optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0,
-                                        initial_accumulator_value=0)
+            optimizer = torch.optim.Adagrad(model.parameters(),
+                                            lr=0.01,
+                                            lr_decay=0,
+                                            weight_decay=0,
+                                            initial_accumulator_value=0)
 
         elif self.args.optimizer == 'asgd':
-            optimizer = torch.optim.ASGD(model.parameters(), lr=0.01, lambd=0.0001, alpha=0.75, t0=1000000.0,
+            optimizer = torch.optim.ASGD(model.parameters(),
+                                         lr=0.01,
+                                         lambd=0.0001,
+                                         alpha=0.75,
+                                         t0=1000000.0,
                                          weight_decay=0)
         elif self.args.optimizer == 'rmsprop':
-            optimizer = torch.optim.RMSprop(model.parameters(), lr=0.01, alpha=0.99, eps=1e-08, weight_decay=0,
-                                            momentum=0, centered=False)
+            optimizer = torch.optim.RMSprop(model.parameters(),
+                                            lr=0.01,
+                                            alpha=0.99,
+                                            eps=1e-08,
+                                            weight_decay=0,
+                                            momentum=0,
+                                            centered=False)
         elif self.args.optimizer == 'adadelta':
-            optimizer = torch.optim.Adadelta(model.parameters(), lr=1.0, rho=0.9, eps=1e-06, weight_decay=0)
+            optimizer = torch.optim.Adadelta(model.parameters(),
+                                             lr=1.0,
+                                             rho=0.9,
+                                             eps=1e-06,
+                                             weight_decay=0)
 
         for iter in range(self.args.local_ep):
             batch_loss = []
@@ -89,13 +109,15 @@ class LocalUpdate(object):
                 optimizer.step()
 
                 if self.args.verbose and (batch_idx % 10 == 0):
-                    print('| Global Round : {} | Local Epoch : {} | [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                        global_round, iter, batch_idx * len(images),
-                        len(self.trainloader.dataset),
-                        100. * batch_idx / len(self.trainloader), loss.item()))
+                    print(
+                        '| Global Round : {} | Local Epoch : {} | [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
+                        .format(global_round, iter, batch_idx * len(images),
+                                len(self.trainloader.dataset),
+                                100. * batch_idx / len(self.trainloader),
+                                loss.item()))
                 self.logger.add_scalar('loss', loss.item())
                 batch_loss.append(loss.item())
-            epoch_loss.append(sum(batch_loss)/len(batch_loss))
+            epoch_loss.append(sum(batch_loss) / len(batch_loss))
 
         return model.state_dict(), sum(epoch_loss) / len(epoch_loss)
 
@@ -120,7 +142,7 @@ class LocalUpdate(object):
             correct += torch.sum(torch.eq(pred_labels, labels)).item()
             total += len(labels)
 
-        accuracy = correct/total
+        accuracy = correct / total
         return accuracy, loss
 
 
@@ -133,8 +155,7 @@ def test_inference(args, model, test_dataset):
 
     device = 'cuda' if args.gpu else 'cpu'
     criterion = nn.NLLLoss().to(device)
-    testloader = DataLoader(test_dataset, batch_size=128,
-                            shuffle=False)
+    testloader = DataLoader(test_dataset, batch_size=128, shuffle=False)
 
     for batch_idx, (images, labels) in enumerate(testloader):
         images, labels = images.to(device), labels.to(device)
@@ -150,5 +171,5 @@ def test_inference(args, model, test_dataset):
         correct += torch.sum(torch.eq(pred_labels, labels)).item()
         total += len(labels)
 
-    accuracy = correct/total
+    accuracy = correct / total
     return accuracy, loss
