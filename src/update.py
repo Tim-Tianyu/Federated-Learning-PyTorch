@@ -96,6 +96,24 @@ class LocalUpdate(object):
                                              rho=0.9,
                                              eps=1e-06,
                                              weight_decay=0)
+        
+        # add lr scheduler for local updates
+        if self.args.scheduler is None:
+            pass
+        elif self.args.scheduler == 'step':
+            # important parameters to tune: step_size, gamma 
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 
+                                                        step_size=1, 
+                                                        gamma=0.5)
+        elif self.args.scheduler == 'reduceOnPlateau':
+            # important parameters to tune: factor, patience, cooldown, min_lr
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
+                                                                   factor=0.1, 
+                                                                   patience=10)
+        elif self.args.scheduler == 'cosineAnnealing':
+            # important parameters to tune: T_max(step)
+            T_max = 5
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max)
 
         for iter in range(self.args.local_ep):
             batch_loss = []
@@ -118,6 +136,14 @@ class LocalUpdate(object):
                 self.logger.add_scalar('loss', loss.item())
                 batch_loss.append(loss.item())
             epoch_loss.append(sum(batch_loss) / len(batch_loss))
+
+            # update learning rate
+            if self.args.scheduler is None:
+                pass
+            elif self.args.scheduler == 'reduceOnPlateau':
+                scheduler.step(epoch_loss[-1])
+            else:
+                scheduler.step()
 
         return model.state_dict(), sum(epoch_loss) / len(epoch_loss)
 
