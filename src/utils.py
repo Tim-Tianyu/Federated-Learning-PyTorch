@@ -97,6 +97,29 @@ def average_weights(w):
     return w_avg
 
 
+def fedavg(baseline_weights, local_deltas_updates, server_lr=1):
+    """
+    Server aggregation with learning rate of alpha.
+    
+    """
+    avg_update = [
+        torch.zeros(x.size())  # pylint: disable=no-member
+        for _, x in local_deltas_updates[0]
+    ]
+
+    for i, update in enumerate(local_deltas_updates):
+        for j, (_, delta) in enumerate(update):
+            # Use weighted average by number of samples
+            avg_update[j] += delta  #* (num_samples / total_samples)
+
+    # Load updated weights into model
+    updated_weights = []
+    for i, (name, weight) in enumerate(baseline_weights):
+        updated_weights.append((name, weight + server_lr * avg_update[i]))
+
+    return updated_weights
+
+
 def exp_details(args):
     print('\nExperimental details:')
     print(f'    Model     : {args.model}')

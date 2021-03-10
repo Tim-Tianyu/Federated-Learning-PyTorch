@@ -96,24 +96,25 @@ class LocalUpdate(object):
                                              rho=0.9,
                                              eps=1e-06,
                                              weight_decay=0)
-        
+
         # add lr scheduler for local updates
         if self.args.scheduler is None:
             pass
         elif self.args.scheduler == 'step':
-            # important parameters to tune: step_size, gamma 
-            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 
-                                                        step_size=1, 
+            # important parameters to tune: step_size, gamma
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                        step_size=1,
                                                         gamma=0.5)
         elif self.args.scheduler == 'reduceOnPlateau':
             # important parameters to tune: factor, patience, cooldown, min_lr
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
-                                                                   factor=0.1, 
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                                   factor=0.1,
                                                                    patience=10)
         elif self.args.scheduler == 'cosineAnnealing':
             # important parameters to tune: T_max(step)
             T_max = 5
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max)
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max)
 
         for iter in range(self.args.local_ep):
             batch_loss = []
@@ -145,7 +146,9 @@ class LocalUpdate(object):
             else:
                 scheduler.step()
 
-        return model.state_dict(), sum(epoch_loss) / len(epoch_loss)
+        #return model.state_dict(), sum(epoch_loss) / len(epoch_loss)
+        return model.state_dict(), extract_weights(
+            model), sum(epoch_loss) / len(epoch_loss)
 
     def inference(self, model):
         """ Returns the inference accuracy and loss.
@@ -199,3 +202,12 @@ def test_inference(args, model, test_dataset):
 
     accuracy = correct / total
     return accuracy, loss
+
+
+def extract_weights(model):
+    weights = []
+    for name, weight in model.to(torch.device('cpu')).named_parameters():  # pylint: disable=no-member
+        if weight.requires_grad:
+            weights.append((name, weight.data))
+
+    return weights

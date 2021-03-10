@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 # Python version: 3.6
 
-
 import os
 import copy
 import time
@@ -14,10 +13,9 @@ import torch
 from tensorboardX import SummaryWriter
 
 from options import args_parser
-from update import LocalUpdate, test_inference
+from update import LocalUpdate, test_inference, extract_weights
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import get_dataset, average_weights, exp_details
-
+from utils import get_dataset, average_weights, exp_details, fedavg
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -52,7 +50,8 @@ if __name__ == '__main__':
         len_in = 1
         for x in img_size:
             len_in *= x
-            global_model = MLP(dim_in=len_in, dim_hidden=64,
+            global_model = MLP(dim_in=len_in,
+                               dim_hidden=64,
                                dim_out=args.num_classes)
     else:
         exit('Error: unrecognized model')
@@ -73,26 +72,56 @@ if __name__ == '__main__':
     val_loss_pre, counter = 0, 0
 
     for epoch in tqdm(range(args.epochs)):
-        local_weights, local_losses = [], []
+        local_weights, local_losses, w_s = [], [], []
         print(f'\n | Global Training Round : {epoch+1} |\n')
 
         global_model.train()
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
 
+        # Extract baseline model weights
+        baseline_weights = extract_weights(global_model)
+
         for idx in idxs_users:
-            local_model = LocalUpdate(args=args, dataset=train_dataset,
-                                      idxs=user_groups[idx], logger=logger)
-            w, loss = local_model.update_weights(
-                model=copy.deepcopy(global_model), global_round=epoch)
-            local_weights.append(copy.deepcopy(w))
+            local_model = LocalUpdate(args=args,
+                                      dataset=train_dataset,
+                                      idxs=user_groups[idx],
+                                      logger=logger)
+            w, local_model_weight, loss = local_model.update_weights(
+                model=copy.deepcopy(global_model), global_round=epoch
+            )  # clients send local model weights to server
+
+            # compute local delta weights
+            w_s.append(w)
+            local_delta_update = []
+            for i, (name, weight) in enumerate(local_model_weight):
+                bl_name, baseline = baseline_weights[i]
+
+                # Ensure correct weight is being updated
+                assert name == bl_name
+
+                # Calculate update
+                delta = weight - baseline
+                local_delta_update.append((name, delta))
+
+            local_weights.append(local_delta_update)
+            #local_weights.append(copy.deepcopy(w))
             local_losses.append(copy.deepcopy(loss))
 
         # update global weights
-        global_weights = average_weights(local_weights)
+        if epoch == 1:  # initialize the global model by vanilla averaging for first epoch
+            global_weights = average_weights(w_s)
+            global_model.load_state_dict(global_weights)
+        else:
+            global_weights = fedavg(baseline_weights,
+                                    local_weights,
+                                    server_lr=1)
 
-        # update global weights
-        global_model.load_state_dict(global_weights)
+            updated_state_dict = {}
+            for name, weight in global_weights:
+                updated_state_dict[name] = weight
+
+            global_model.load_state_dict(updated_state_dict, strict=False)
 
         loss_avg = sum(local_losses) / len(local_losses)
         train_loss.append(loss_avg)
@@ -101,25 +130,28 @@ if __name__ == '__main__':
         list_acc, list_loss = [], []
         global_model.eval()
         for c in range(args.num_users):
-            local_model = LocalUpdate(args=args, dataset=train_dataset,
-                                      idxs=user_groups[idx], logger=logger)
+            local_model = LocalUpdate(args=args,
+                                      dataset=train_dataset,
+                                      idxs=user_groups[idx],
+                                      logger=logger)
             acc, loss = local_model.inference(model=global_model)
             list_acc.append(acc)
             list_loss.append(loss)
-        train_accuracy.append(sum(list_acc)/len(list_acc))
+        train_accuracy.append(sum(list_acc) / len(list_acc))
 
         # print global training loss after every 'i' rounds
-        if (epoch+1) % print_every == 0:
+        if (epoch + 1) % print_every == 0:
             print(f' \nAvg Training Stats after {epoch+1} global rounds:')
             print(f'Training Loss : {np.mean(np.array(train_loss[-1]))}')
-            print('Train Accuracy: {:.2f}% \n'.format(100*train_accuracy[-1]))
+            print('Train Accuracy: {:.2f}% \n'.format(100 *
+                                                      train_accuracy[-1]))
 
     # Test inference after completion of training
     test_acc, test_loss = test_inference(args, global_model, test_dataset)
 
     print(f' \n Results after {args.epochs} global rounds of training:')
-    print("|---- Avg Train Accuracy: {:.2f}%".format(100*train_accuracy[-1]))
-    print("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
+    print("|---- Avg Train Accuracy: {:.2f}%".format(100 * train_accuracy[-1]))
+    print("|---- Test Accuracy: {:.2f}%".format(100 * test_acc))
 
     # Saving the objects train_loss and train_accuracy:
     file_name = '../save/objects/{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}]_Opt[{}]_Un[{}].pkl'.\
@@ -129,7 +161,7 @@ if __name__ == '__main__':
     with open(file_name, 'wb') as f:
         pickle.dump([train_loss, train_accuracy, test_acc, test_loss], f)
 
-    print('\n Total Run Time: {0:0.4f}'.format(time.time()-start_time))
+    print('\n Total Run Time: {0:0.4f}'.format(time.time() - start_time))
 
     # PLOTTING (optional)
     # import matplotlib
