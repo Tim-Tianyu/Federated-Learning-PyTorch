@@ -92,7 +92,7 @@ if __name__ == '__main__':
             )  # clients send local model weights to server
 
             # compute local delta weights
-            w_s.append(w)
+            w_s.append(copy.deepcopy(w))
             local_delta_update = []
             for i, (name, weight) in enumerate(local_model_weight):
                 bl_name, baseline = baseline_weights[i]

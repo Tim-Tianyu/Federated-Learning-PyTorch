@@ -107,10 +107,12 @@ def fedavg(baseline_weights, local_deltas_updates, server_lr=1):
         for _, x in local_deltas_updates[0]
     ]
 
+    number_of_clients = len(local_deltas_updates)
+
     for i, update in enumerate(local_deltas_updates):
         for j, (_, delta) in enumerate(update):
             # Use weighted average by number of samples
-            avg_update[j] += delta  #* (num_samples / total_samples)
+            avg_update[j] += delta * (1.0 / number_of_clients) #* (num_samples / total_samples)
 
     # Load updated weights into model
     updated_weights = []
