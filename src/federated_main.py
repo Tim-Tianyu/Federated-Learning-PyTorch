@@ -82,6 +82,12 @@ if __name__ == '__main__':
         # Extract baseline model weights
         baseline_weights = extract_weights(global_model)
 
+        # record number of samples
+        num_samples_list = []
+        for idx in idxs_users:
+            idxs = user_groups[idx]
+            num_samples_list.append(len(idxs))
+
         for idx in idxs_users:
             local_model = LocalUpdate(args=args,
                                       dataset=train_dataset,
@@ -115,6 +121,7 @@ if __name__ == '__main__':
         else:
             global_weights = fedavg(baseline_weights,
                                     local_weights,
+                                    num_samples_list,
                                     server_lr=1)
 
             updated_state_dict = {}
