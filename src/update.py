@@ -61,41 +61,19 @@ class LocalUpdate(object):
         # Set optimizer for the local updates
         if self.args.optimizer == 'sgd':
             optimizer = torch.optim.SGD(model.parameters(),
-                                        lr=self.args.lr,
-                                        momentum=0.5)
+                                        lr=self.args.lr)
         elif self.args.optimizer == 'adam':
-            optimizer = torch.optim.Adam(model.parameters(),
-                                         lr=self.args.lr,
-                                         weight_decay=1e-4)
+            optimizer = torch.optim.Adam(model.parameters())
         # added new optimizer
         elif self.args.optimizer == 'adagrad':
-            optimizer = torch.optim.Adagrad(model.parameters(),
-                                            lr=0.01,
-                                            lr_decay=0,
-                                            weight_decay=0,
-                                            initial_accumulator_value=0)
+            optimizer = torch.optim.Adagrad(model.parameters())
 
         elif self.args.optimizer == 'asgd':
-            optimizer = torch.optim.ASGD(model.parameters(),
-                                         lr=0.01,
-                                         lambd=0.0001,
-                                         alpha=0.75,
-                                         t0=1000000.0,
-                                         weight_decay=0)
+            optimizer = torch.optim.ASGD(model.parameters())
         elif self.args.optimizer == 'rmsprop':
-            optimizer = torch.optim.RMSprop(model.parameters(),
-                                            lr=0.01,
-                                            alpha=0.99,
-                                            eps=1e-08,
-                                            weight_decay=0,
-                                            momentum=0,
-                                            centered=False)
+            optimizer = torch.optim.RMSprop(model.parameters())
         elif self.args.optimizer == 'adadelta':
-            optimizer = torch.optim.Adadelta(model.parameters(),
-                                             lr=1.0,
-                                             rho=0.9,
-                                             eps=1e-06,
-                                             weight_decay=0)
+            optimizer = torch.optim.Adadelta(model.parameters())
 
         # add lr scheduler for local updates
         if self.args.scheduler is None:
@@ -103,13 +81,10 @@ class LocalUpdate(object):
         elif self.args.scheduler == 'step':
             # important parameters to tune: step_size, gamma
             scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                        step_size=1,
-                                                        gamma=0.5)
+                                                        step_size=5)
         elif self.args.scheduler == 'reduceOnPlateau':
             # important parameters to tune: factor, patience, cooldown, min_lr
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                                   factor=0.1,
-                                                                   patience=10)
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
         elif self.args.scheduler == 'cosineAnnealing':
             # important parameters to tune: T_max(step)
             T_max = 5
