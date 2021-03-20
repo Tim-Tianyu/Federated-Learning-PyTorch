@@ -97,7 +97,10 @@ def average_weights(w):
     return w_avg
 
 
-def fedavg(baseline_weights, local_deltas_updates, num_samples_list, server_lr=1):
+def fedavg(baseline_weights,
+           local_deltas_updates,
+           num_samples_list,
+           server_lr=1):
     """
     Server aggregation with learning rate of alpha.
     
@@ -113,8 +116,15 @@ def fedavg(baseline_weights, local_deltas_updates, num_samples_list, server_lr=1
     for i, update in enumerate(local_deltas_updates):
         for j, (_, delta) in enumerate(update):
             # Use weighted average by number of samples
-            avg_update[j] += delta * (num_samples_list[i] / total_samples) #* (num_samples / total_samples)
+            avg_update[j] += delta * (num_samples_list[i] / total_samples
+                                      )  #* (num_samples / total_samples)
 
+    # exponetial decay
+    server_lr_max = 1
+    server_lr_min = 0.1
+    decay_rate = 0.01
+    server_lr = server_lr_max - decay_rate * (server_lr_max -
+                                              server_lr_min) * epoch_id
     # Load updated weights into model
     updated_weights = []
     for i, (name, weight) in enumerate(baseline_weights):
