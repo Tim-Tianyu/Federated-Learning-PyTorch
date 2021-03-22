@@ -53,6 +53,8 @@ def args_parser():
                         of optimizer")
     parser.add_argument('--scheduler', type =str, default=None, help="type \
                         of learning rate scheduler for the optimizer")
+    parser.add_argument('--sever_decay', type =str, default=None, help="type \
+                        of Server Learning Rate Decay")
     parser.add_argument('--iid', type=int, default=1,
                         help='Default set to IID. Set to 0 for non-IID.')
     parser.add_argument('--unequal', type=int, default=0,

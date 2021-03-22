@@ -70,6 +70,12 @@ if __name__ == '__main__':
     cv_loss, cv_acc = [], []
     print_every = 2
     val_loss_pre, counter = 0, 0
+    server_lr = 1
+    
+    #paramters for sever decay based on loss
+    
+    best_loss = None
+    num_epochs_without_improvement = 0
 
     for epoch in tqdm(range(args.epochs)):
         local_weights, local_losses, w_s = [], [], []
@@ -122,7 +128,7 @@ if __name__ == '__main__':
             global_weights = fedavg(baseline_weights,
                                     local_weights,
                                     num_samples_list,
-                                    server_lr=1)
+                                    server_lr=server_lr)
 
             updated_state_dict = {}
             for name, weight in global_weights:
@@ -132,6 +138,35 @@ if __name__ == '__main__':
 
         loss_avg = sum(local_losses) / len(local_losses)
         train_loss.append(loss_avg)
+
+        #Decay server learning rate
+        if args.sever_decay is None:
+            pass
+        elif args.sever_decay == "exponetial":
+            # exponetial decay
+            server_lr_max = 1
+            server_lr_min = 0.1
+            decay_rate = 0.01
+            server_lr = server_lr_max - decay_rate * (server_lr_max - server_lr_min) * epoch
+        elif args.sever_decay == "loss":
+            # decay based on loss
+            patient = 3
+            factor = 0.5
+            if best_loss is None:
+                best_loss = loss_avg
+            elif loss_avg < best_loss :
+                best_loss = loss_avg
+                num_epochs_without_improvement = 0
+            else:
+                num_epochs_without_improvement += 1
+            
+            if num_epochs_without_improvement >= patient:
+                server_lr = server_lr * factor
+                num_epochs_without_improvement = 0
+
+        elif args.sever_decay == "commu":
+            # what is the design for this ?
+            pass
 
         # Calculate avg training accuracy over all users at every epoch
         list_acc, list_loss = [], []
@@ -163,7 +198,7 @@ if __name__ == '__main__':
     # Saving the objects train_loss and train_accuracy:
     file_name = '../save/objects/{}_{}_{}_iid[{}]_Opt[{}]_Un[{}]_Lr[{}]_Decay[{}].pkl'.\
         format(args.dataset, args.model, args.epochs, args.iid,
-            args.optimizer, args.unequal, args.scheduler, None)
+            args.optimizer, args.unequal, args.scheduler, args.sever_decay)
 
     with open(file_name, 'wb') as f:
         pickle.dump([train_loss, train_accuracy, test_acc, test_loss], f)
