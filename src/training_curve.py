@@ -156,3 +156,62 @@ plt.ylabel('Train loss')
 plt.legend()
 plt.savefig(fig_name)
 plt.close()
+
+def produce_compare_fig(fig_name, file_list, lable_list):
+    fig_name = '../save/' + fig_name +'.png'
+    plt.figure()
+    for i in range(len(file_list)):
+        file = file_list[i]
+        label = lable_list[i]
+        if not file.endswith('.pkl'):
+            continue
+
+        file_name = folder + file
+        data = []
+        print(file)
+        with open(file_name, 'rb') as f:
+            data = pickle.load(f)
+            train_loss = data[0]
+            train_accuracy = data[1]
+        f.close()
+
+        plt.plot(range(len(train_loss)), train_loss, label=label)
+    plt.xlabel('epochs')
+    plt.ylabel('Train loss')
+    plt.legend()
+    plt.savefig(fig_name)
+    plt.close()
+
+Decay_compare = ["plateau", "step", "expontial"]
+
+Decay_compare_adam_mnist = [
+    "mnist_cnn_30_iid[0]_Opt[adam]_Un[0]_Lr[None]_Decay[loss].pkl",
+    "mnist_cnn_30_iid[0]_Opt[adam]_Un[0]_Lr[None]_Decay[commu].pkl",
+    "mnist_cnn_30_iid[0]_Opt[adam]_Un[0]_Lr[None]_Decay[None]_exp_decay.pkl"
+]
+
+produce_compare_fig("DecayCompare_Adam_MNIST", Decay_compare_adam_mnist, Decay_compare)
+
+Decay_compare_plateau_mnist = [
+    "mnist_cnn_30_iid[0]_Opt[sgd]_Un[0]_Lr[reduceOnPlateau]_Decay[loss].pkl",
+    "mnist_cnn_30_iid[0]_Opt[sgd]_Un[0]_Lr[reduceOnPlateau]_Decay[commu].pkl",
+    "mnist_cnn_30_iid[0]_Opt[sgd]_Un[0]_Lr[reduceOnPlateau]_Decay[exponetial].pkl"
+]
+
+produce_compare_fig("DecayCompare_Plateau_MNIST", Decay_compare_plateau_mnist, Decay_compare)
+
+Decay_compare_adam_fmnist = [
+    "fmnist_cnn_30_iid[0]_Opt[adam]_Un[0]_Lr[None]_Decay[loss].pkl",
+    "fmnist_cnn_30_iid[0]_Opt[adam]_Un[0]_Lr[None]_Decay[commu].pkl",
+    "fmnist_cnn_30_iid[0]_Opt[adam]_Un[0]_Lr[None]_Decay[None]_exp_decay.pkl"
+]
+
+produce_compare_fig("DecayCompare_Adam_FMNIST", Decay_compare_adam_fmnist, Decay_compare)
+
+Decay_compare_plateau_fmnist = [
+    "fmnist_cnn_30_iid[0]_Opt[sgd]_Un[0]_Lr[reduceOnPlateau]_Decay[loss].pkl",
+    "fmnist_cnn_30_iid[0]_Opt[sgd]_Un[0]_Lr[reduceOnPlateau]_Decay[commu].pkl",
+    "fmnist_cnn_30_iid[0]_Opt[sgd]_Un[0]_Lr[reduceOnPlateau]_Decay[exponetial].pkl"
+]
+
+produce_compare_fig("DecayCompare_Plateau_FMNIST", Decay_compare_plateau_fmnist, Decay_compare)

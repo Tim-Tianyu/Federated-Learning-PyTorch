@@ -165,8 +165,7 @@ if __name__ == '__main__':
                 num_epochs_without_improvement = 0
 
         elif args.sever_decay == "commu":
-            # what is the design for this ?
-            pass
+            server_lr = server_lr * 0.9
 
         # Calculate avg training accuracy over all users at every epoch
         list_acc, list_loss = [], []
